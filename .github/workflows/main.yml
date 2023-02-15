@@ -1,9 +1,19 @@
-name: update pkg.go.dev
-on: push
+name: Update Go Package Info
+
+on:
+  push:
+    branches:
+      - main
+
 jobs:
-  check-sum:
+  update_package_info:
     runs-on: ubuntu-latest
     steps:
-      - name: Check package sum
-        run: |
-          curl https://sum.golang.org/lookup/github.com/eduncan911/podcast@v1.4.1
+    - name: Checkout source code
+      uses: actions/checkout@v2
+
+    - name: Update package info
+      run: |
+        PACKAGE_NAME=$(go list)
+        SUM_URL="https://sum.golang.org/lookup/$PACKAGE_NAME"
+        curl -X POST $SUM_URL
