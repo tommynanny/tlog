@@ -1,4 +1,4 @@
-module tommynanny/tlog
+module github.com/tommynanny/tlog
 
 go 1.20
 
