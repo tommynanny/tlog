@@ -1,4 +1,4 @@
-package tlog
+package logger
 
 import (
 	"bytes"
@@ -11,15 +11,8 @@ import (
 
 type TLogger struct {
 	// Logger is the underlying log.Logger instance used to output log messages.
-	Logger log.Logger
-	// PrintToStdout determines whether log messages are printed to standard output in addition to the log file.
-	PrintToStdout bool
-	// UseWrapper determines whether a log file wrapper is used.
-	UseWrapper bool
-	// ColorfulStdout determines whether colorful output is used for standard output.
-	ColorfulStdout bool
-	// WithCallerSkip is the number of stack frames to skip when determining the caller's location.
-	WithCallerSkip int
+	Logger  log.Logger
+	Options *LoggerOptions
 }
 
 // wrap formats the given values using the dump package, with or without color, and returns both the formatted string
@@ -30,16 +23,16 @@ type TLogger struct {
 //
 //	(string) - the formatted string with color for use in standard output, if ColorfulStdout is true
 func (tl *TLogger) wrap(raw ...any) (logString string, stdString string) {
-	if !tl.UseWrapper {
+	if !tl.Options.UseWrapper {
 		return fmt.Sprint(raw...), fmt.Sprint(raw...)
 	}
 
-	dump.Config(dump.WithoutColor(), dump.WithCallerSkip(tl.WithCallerSkip))
+	dump.Config(dump.WithoutColor(), dump.WithCallerSkip(tl.Options.WithCallerSkip))
 	w := &bytes.Buffer{}
 	dump.Std().Fprint(w, raw...)
 	noColorWrappedString := w.String()
 
-	if tl.ColorfulStdout {
+	if tl.Options.ColorfulStdout {
 		return noColorWrappedString, dump.Format(raw)
 	}
 	return noColorWrappedString, noColorWrappedString
@@ -50,14 +43,16 @@ func (tl *TLogger) wrap(raw ...any) (logString string, stdString string) {
 // Input: err (error) - the error to be logged
 // Output: none
 func (tl *TLogger) HandleError(err error) {
-	if err != nil {
-		r1, r2 := tl.wrap(err.Error())
-		tl.dumpToStdout(r2)
-		tl.Logger.Println(r1)
+	if err == nil {
+		return
 	}
 
-	if tl != errLogger {
-		errLogger.HandleError(err)
+	r1, r2 := tl.wrap(err.Error())
+	tl.dumpToStdout(r2)
+	tl.Logger.Println(r1)
+
+	if tl != ErrLogger {
+		ErrLogger.HandleError(err)
 	}
 }
 
@@ -66,10 +61,30 @@ func (tl *TLogger) HandleError(err error) {
 // Input: err (error) - the error to be logged
 // Output: none
 func (tl *TLogger) Panicln(err error) {
-	if err != nil {
-		r1, r2 := tl.wrap(err.Error())
-		tl.dumpToStdout(r2)
-		tl.Logger.Panicln(r1)
+	if err == nil {
+		return
+	}
+
+	r1, r2 := tl.wrap(err.Error())
+	tl.dumpToStdout(r2)
+	tl.Logger.Panicln(r1)
+
+	if tl != ErrLogger {
+		ErrLogger.HandleError(err)
+	}
+}
+
+func (tl *TLogger) Panic(err error) {
+	if err == nil {
+		return
+	}
+
+	r1, r2 := tl.wrap(err.Error())
+	tl.dumpToStdout(r2)
+	tl.Logger.Panic(r1)
+
+	if tl != ErrLogger {
+		ErrLogger.HandleError(err)
 	}
 }
 
@@ -81,6 +96,12 @@ func (tl *TLogger) Println(v ...any) {
 	r1, r2 := tl.wrap(v...)
 	tl.dumpToStdout(r2)
 	tl.Logger.Println(r1)
+}
+
+func (tl *TLogger) Print(v ...any) {
+	r1, r2 := tl.wrap(v...)
+	tl.dumpToStdout(r2)
+	tl.Logger.Print(r1)
 }
 
 // Printf formats and logs the given string with the TLogger's Logger instance and, if PrintToStdout is true,
@@ -102,7 +123,7 @@ func (tl *TLogger) Printf(format string, v ...any) {
 // Input: v (any) - the value or values to be dumped to standard output
 // Output: none
 func (tl *TLogger) dumpToStdout(v ...any) {
-	if tl.PrintToStdout {
+	if tl.Options.PrintToStdout {
 		dump.Println(v)
 	}
 }

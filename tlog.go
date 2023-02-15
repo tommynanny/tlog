@@ -6,40 +6,25 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
+	lg "github.com/tommynanny/tlog/logger"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
-	// Main is the main logger.
-	Main *TLogger
-	// errLogger is the global error logger.
-	errLogger *TLogger
-	// LOG_ROOT is the root directory for all log files, which use timestamps as sessions.
-	LOG_ROOT = "logs/" + time.Now().UTC().Format("2006-01-02--15-04-05")
-	// UseWrapperOnNew determines whether to use the wrapper for log files created by CreateLogger().
-	UseWrapperOnNew = true
-	// ColorfulStdoutOnNew determines whether to use colorful output for standard output.
-	ColorfulStdoutOnNew = true
-	// PrintToStdoutOnNew determines whether log messages are printed to standard output in addition to the log file.
-	PrintToStdoutOnNew = true
-
-	AutoSetupLogger = true
+	GlobalOptions *Options
 )
 
 func init() {
-	if AutoSetupLogger {
+	if GlobalOptions.AutoSetupLogger {
 		SetupLogger()
 	}
 }
 
 // SetupLogger sets up the Main and errLogger loggers.
 func SetupLogger() {
-	Main = CreateTLogger("Main")
-	errLogger = CreateTLogger("Errors")
-	errLogger.PrintToStdout = false
-	errLogger.WithCallerSkip = 5
+	lg.Main = CreateTLogger("Main")
+	lg.ErrLogger = CreateTLogger("Errors", lg.NoStdout(), lg.WithCallSkip(5))
 }
 
 // prepareLogFile prepares the log file for use.
@@ -58,8 +43,8 @@ func prepareLogFile(logfName string) {
 // CreateLogger creates a new logger with the given name.
 // Input: name (string) - the name of the new logger
 // Output: (*TLogger) - a pointer to the new logger
-func CreateTLogger(name string) *TLogger {
-	logfName := fmt.Sprintf("./%s/%s.log", LOG_ROOT, name)
+func CreateTLogger(name string, fns ...lg.OptionFunc) *lg.TLogger {
+	logfName := fmt.Sprintf("./%s/%s.log", GlobalOptions.LOG_ROOT, name)
 
 	parentDir := filepath.Dir(logfName)
 	if err := os.MkdirAll(parentDir, 0755); err != nil {
@@ -75,12 +60,9 @@ func CreateTLogger(name string) *TLogger {
 		MaxAge:     360, //days
 	}, "", log.LstdFlags)
 
-	return &TLogger{
-		Logger:         *current_logger,
-		WithCallerSkip: 4,
-		PrintToStdout:  PrintToStdoutOnNew,
-		UseWrapper:     UseWrapperOnNew,
-		ColorfulStdout: ColorfulStdoutOnNew,
+	return &lg.TLogger{
+		Logger:  *current_logger,
+		Options: lg.NewDefaultOptions(),
 	}
 }
 
@@ -88,8 +70,8 @@ func CreateTLogger(name string) *TLogger {
 // Input: name (string) - the name of the new logger
 // Input: writter (io.Writer) - the writer
 // Output: (*TLogger) - a pointer to the new logger
-func CreateTLoggerWithWriter(name string, writter io.Writer) *TLogger {
-	logfName := fmt.Sprintf("./%s/%s.log", LOG_ROOT, name)
+func CreateTLoggerWithWriter(name string, writter io.Writer, fns ...lg.OptionFunc) *lg.TLogger {
+	logfName := fmt.Sprintf("./%s/%s.log", GlobalOptions.LOG_ROOT, name)
 
 	parentDir := filepath.Dir(logfName)
 	if err := os.MkdirAll(parentDir, 0755); err != nil {
@@ -100,11 +82,15 @@ func CreateTLoggerWithWriter(name string, writter io.Writer) *TLogger {
 
 	current_logger := log.New(writter, "", log.LstdFlags)
 
-	return &TLogger{
-		Logger:         *current_logger,
-		WithCallerSkip: 4,
-		PrintToStdout:  PrintToStdoutOnNew,
-		UseWrapper:     UseWrapperOnNew,
-		ColorfulStdout: ColorfulStdoutOnNew,
+	return &lg.TLogger{
+		Logger:  *current_logger,
+		Options: lg.NewDefaultOptions(),
 	}
 }
+
+func HandleError(err error)          { lg.Main.HandleError(err) }
+func Panicln(err error)              { lg.Main.Panicln(err) }
+func Panic(err error)                { lg.Main.Panic(err) }
+func Println(v ...any)               { lg.Main.Println(v) }
+func Print(v ...any)                 { lg.Main.Print(v) }
+func Printf(format string, v ...any) { lg.Main.Printf(format, v) }
