@@ -16,6 +16,6 @@ tlog Package provides a simple logging framework with support for colorful outpu
      )
 
      func main() {
-        tlog.Println("Hello World")
+        tlog.Println("Hello World!")
      }
 ```
