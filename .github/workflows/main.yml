@@ -1,0 +1,9 @@
+name: update pkg.go.dev
+on: push
+jobs:
+  check-sum:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check package sum
+        run: |
+          curl https://sum.golang.org/lookup/github.com/eduncan911/podcast@v1.4.1
