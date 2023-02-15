@@ -2,6 +2,7 @@ package tlog
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -23,12 +24,20 @@ var (
 	ColorfulStdoutOnNew = true
 	// PrintToStdoutOnNew determines whether log messages are printed to standard output in addition to the log file.
 	PrintToStdoutOnNew = true
+
+	AutoSetupLogger = true
 )
+
+func init() {
+	if AutoSetupLogger {
+		SetupLogger()
+	}
+}
 
 // SetupLogger sets up the Main and errLogger loggers.
 func SetupLogger() {
-	Main = CreateLogger("Main")
-	errLogger = CreateLogger("Errors")
+	Main = CreateTLogger("Main")
+	errLogger = CreateTLogger("Errors")
 	errLogger.PrintToStdout = false
 	errLogger.WithCallerSkip = 5
 }
@@ -49,7 +58,7 @@ func prepareLogFile(logfName string) {
 // CreateLogger creates a new logger with the given name.
 // Input: name (string) - the name of the new logger
 // Output: (*TLogger) - a pointer to the new logger
-func CreateLogger(name string) *TLogger {
+func CreateTLogger(name string) *TLogger {
 	logfName := fmt.Sprintf("./%s/%s.log", LOG_ROOT, name)
 
 	parentDir := filepath.Dir(logfName)
@@ -65,6 +74,31 @@ func CreateLogger(name string) *TLogger {
 		MaxBackups: 500,
 		MaxAge:     360, //days
 	}, "", log.LstdFlags)
+
+	return &TLogger{
+		Logger:         *current_logger,
+		WithCallerSkip: 4,
+		PrintToStdout:  PrintToStdoutOnNew,
+		UseWrapper:     UseWrapperOnNew,
+		ColorfulStdout: ColorfulStdoutOnNew,
+	}
+}
+
+// CreateTLoggerWithWriter creates a new logger with the given name and a writter.
+// Input: name (string) - the name of the new logger
+// Input: writter (io.Writer) - the writer
+// Output: (*TLogger) - a pointer to the new logger
+func CreateTLoggerWithWriter(name string, writter io.Writer) *TLogger {
+	logfName := fmt.Sprintf("./%s/%s.log", LOG_ROOT, name)
+
+	parentDir := filepath.Dir(logfName)
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	prepareLogFile(logfName)
+
+	current_logger := log.New(writter, "", log.LstdFlags)
 
 	return &TLogger{
 		Logger:         *current_logger,
